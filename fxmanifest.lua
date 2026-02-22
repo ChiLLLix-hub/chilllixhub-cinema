@@ -33,10 +33,27 @@ hypnonema_sync_interval '5000'
 
 --------------------------------------------
 --------------------------------------------
-fx_version 'adamant'
+fx_version 'cerulean'
 game 'gta5'
 
+lua54 'yes'
+
 ui_page 'client/html/index.html'
+
+-- qb-core must be started before this resource
+dependency 'qb-core'
+
+client_scripts {
+    'config.lua',
+    'client/client.lua',
+}
+
+server_scripts {
+    'config.lua',
+    'server/server.lua',
+}
+
+-- Compiled .NET scripts (core Hypnonema functionality)
 client_script 'client/Hypnonema.Client.net.dll'
 server_script 'server/Hypnonema.Server.net.dll'
 
@@ -46,9 +63,9 @@ files {
     'client/html/index.html',
     'client/html/styles.css',
     'client/html/bg.png',
-    'client/html/*.js'
+    'client/html/*.js',
 }
 
 author 'simpled-dev'
 version '1.8.16'
-description 'a Cinema Resource for FiveM'
+description 'Cinema resource for FiveM with qb-core integration'
