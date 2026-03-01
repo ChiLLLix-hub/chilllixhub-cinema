@@ -1,4 +1,4 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+local QBCore = nil
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Helpers
@@ -22,8 +22,9 @@ local function HasCinemaAccess(src)
         local Player = QBCore.Functions.GetPlayer(src)
         if Player then
             local job = Player.PlayerData.job
-            if job.name == Config.RequiredJob
-                and job.grade.level >= Config.RequiredJobGrade then
+            -- Support both job.grade.level (newer QBCore) and job.grade (legacy numeric)
+            local grade = type(job.grade) == 'table' and job.grade.level or job.grade
+            if job.name == Config.RequiredJob and grade >= Config.RequiredJobGrade then
                 return true
             end
         end
@@ -42,13 +43,49 @@ local function SetCinemaACE(src, grant)
     ExecuteCommand(('%s player.%d group.cinema'):format(action, src))
 end
 
+--- Evaluates a single player and applies the correct ACE principal.
+---@param src number  Server-side player source
+local function EvaluatePlayer(src)
+    SetCinemaACE(src, HasCinemaAccess(src))
+end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Startup: evaluate players who are already online when the resource starts
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CreateThread(function()
+    -- Wait until qb-core is available
+    local attempts = 0
+    while not QBCore do
+        local ok, obj = pcall(function() return exports['qb-core']:GetCoreObject() end)
+        if ok and obj then
+            QBCore = obj
+        else
+            attempts = attempts + 1
+            if attempts >= 20 then
+                print('^1[chilllixhub-cinema] ERROR: qb-core not found after waiting. Make sure qb-core is started before chilllixhub-cinema.^0')
+                return
+            end
+            Wait(500)
+        end
+    end
+
+    -- Re-evaluate any players who were already connected when this resource started/restarted
+    for _, src in ipairs(GetPlayers()) do
+        local numericSrc = tonumber(src)
+        if numericSrc then
+            EvaluatePlayer(numericSrc)
+        end
+    end
+end)
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Event: player loaded (initial permission grant)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
     local src = Player.PlayerData.source
-    SetCinemaACE(src, HasCinemaAccess(src))
+    EvaluatePlayer(src)
 end)
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +102,7 @@ end)
 
 RegisterNetEvent('QBCore:Server:OnJobUpdate', function(jobData)
     local src = source
-    SetCinemaACE(src, HasCinemaAccess(src))
+    EvaluatePlayer(src)
 end)
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -78,3 +115,4 @@ RegisterNetEvent('chilllixhub-cinema:server:checkPermission', function()
     SetCinemaACE(src, allowed)
     TriggerClientEvent('chilllixhub-cinema:client:permissionResult', src, allowed)
 end)
+
